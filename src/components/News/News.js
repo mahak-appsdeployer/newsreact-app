@@ -1,6 +1,7 @@
 
 import NewsItem from './NewsItem'
 import PropTypes from 'prop-types'
+import InfiniteScroll from 'react-infinite-scroll-component';
 //rcc
 
 import React, { Component } from 'react'
@@ -35,28 +36,45 @@ export default class News extends Component {
 
 
     //runs first
-
-    capitilizeToUppercase(string) {
-        return string.charAt(0).toUpperCase() + string.slice(1)
-    }
     constructor(props) {
         super(props)
         this.state = {
             articles: this.articles,
             loading: false,
-            page: 1
+            page: 1,
+            totalResult:0
         }
         document.title = `News Render - ${this.capitilizeToUppercase(this.props.category)}`
     }
 
 
-    async newsupdate() {
-        let url = `https://newsapi.org/v2/top-headlines?country=${this.props.country}&page=${this.state.page}&category=${this.props.category}&apiKey=09858a9246a347238627c3c2feeed2fa&pageSize=${this.props.pageSize}`
-        this.setState({ loading: true })
+    fetchMoreData = async() => {
+        this.setState({
+           page: this.state.page +1
+        })
+        let url = `https://newsapi.org/v2/top-headlines?country=${this.props.country}&page=${this.state.page}&category=${this.props.category}&apiKey=${this.props.apikey}&pageSize=${this.props.pageSize}`
+       
         let data = await fetch(url)  //it gives promise and return in which we will convert in text, json etc
         let parseddata = await data.json()
         console.log(parseddata)
+        this.setState({ articles: this.state.articles.concat(parseddata.articles), totalResult: parseddata.totalResults})
+       
+      };
+    capitilizeToUppercase(string) {
+        return string.charAt(0).toUpperCase() + string.slice(1)
+    }
+    
+    async newsupdate() {
+        this.props.setprogress(20)
+        let url = `https://newsapi.org/v2/top-headlines?country=${this.props.country}&page=${this.state.page}&category=${this.props.category}&apiKey=${this.props.apikey}&pageSize=${this.props.pageSize}`
+        this.setState({ loading: true })
+        let data = await fetch(url)
+        this.props.setprogress(60)  //it gives promise and return in which we will convert in text, json etc
+        let parseddata = await data.json()
+        this.props.setprogress(80)
+    
         this.setState({ articles: parseddata.articles, totalResult: parseddata.totalResults, loading: false })
+        this.props.setprogress(100)
 
     }
 
@@ -84,17 +102,28 @@ export default class News extends Component {
         console.log("render")
         return (
             <>
-                <div className='container my-3  '>
+               <div className="my-3"></div>
                     <h2 className='text-center'>News Render - Top {this.capitilizeToUppercase(this.props.category)} News of India</h2>
                     {this.state.loading && <Spinner />}
-                    <div className="row">
-                        {!this.state.loading && this.state.articles.map((element) => {
-                            return <div className="col-md-4" key={element.url}>
-                                <NewsItem title={element.title ? element.title : ""} description={element.description ? element.description.slice(0, 88) : ""}
-                                    imageurl={element.urlToImage} newsurl={element.url} author={element.author} date={element.publishedAt} source={element.source.name} /></div>
+                    <InfiniteScroll
+                        dataLength={this.state.articles.length}
+                        next={this.fetchMoreData}
+                    
+                        hasMore={this.state.articles.length !== this.totalResult}
+                        loader={<Spinner/>}
+                        
+                    >
+                        <div className="container">
+                        <div className="row">
+                            {this.state.articles.map((element) => {
+                                return <div className="col-md-4" key={element.url}>
+                                    <NewsItem title={element.title ? element.title : ""} description={element.description ? element.description.slice(0, 88) : ""}
+                                        imageurl={element.urlToImage} newsurl={element.url} author={element.author} date={element.publishedAt} source={element.source.name} /></div>
 
-                        })}
-                    </div>
+                            })}
+                        </div>
+                        </div>
+                    </InfiniteScroll>
                     <div className="container d-flex justify-content-between">
                         <button disabled={this.state.page <= 1} type="button" className="btn btn-dark" onClick={this.handleprevious}>&#8592; Previous</button>
 
@@ -102,7 +131,7 @@ export default class News extends Component {
                     </div>
 
 
-                </div>
+           
             </>
         )
     }
